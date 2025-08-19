@@ -41,7 +41,7 @@ class CulvertAnalysisSystem:
         url = "https://nominatim.openstreetmap.org/search"
         q = f"{county} County, {state}, {country}"
         params = {"q": q, "format": "json", "limit": 1}
-        headers = {"User-Agent": "culvert-analysis/1.0 (email@example.com)"}  # change contact if desired
+        headers = {"User-Agent": "culvert-analysis/1.0 (consultrmk@gmail.com"}  # change contact if desired
 
         try:
             r = requests.get(url, params=params, headers=headers, timeout=15)
