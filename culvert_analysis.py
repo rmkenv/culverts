@@ -544,9 +544,13 @@ class CulvertAnalysisSystem:
         print(f"Generated {n_scenarios} synthetic flood scenarios")
         return scenario_df, synthetic_df
 
-    def create_interactive_map(self):
+    def create_interactive_map(self, show_gauges=True):
         """
         Create folium map using bbox center or culvert centroids.
+
+        Parameters:
+            show_gauges (bool): whether the Gauges layer should be visible by default. Users
+                                can toggle the layer on/off in the map layer control.
         """
         print("Creating interactive map...")
 
@@ -563,6 +567,11 @@ class CulvertAnalysisSystem:
 
         m = folium.Map(location=[center_lat, center_lon], zoom_start=10)
 
+        # Create FeatureGroups so layers can be toggled on/off
+        culverts_fg = folium.FeatureGroup(name="Culverts", show=True)
+        gauges_fg = folium.FeatureGroup(name="Gauges", show=bool(show_gauges))
+        floods_fg = folium.FeatureGroup(name="Flood Events", show=True)
+
         # culverts
         for _, culv in self.culverts.iterrows():
             color = "red" if culv.get("risk_level") == "High Risk" else "green"
@@ -570,16 +579,17 @@ class CulvertAnalysisSystem:
                                 radius=5,
                                 color=color,
                                 fill=True,
-                                popup=f"Culvert {culv['culvert_id']}<br>Risk: {culv.get('risk_level','N/A')}"
-                                ).add_to(m)
+                                fill_opacity=0.8,
+                                popup=f"Culvert {culv['culvert_id']}<br>Risk: {culv.get('risk_level','N/A')}",
+                                ).add_to(culverts_fg)
 
         # gauges
         if self.gauges is not None:
             for _, g in self.gauges.iterrows():
                 folium.Marker(location=[g.geometry.y, g.geometry.x],
                               icon=folium.Icon(color="blue", icon="tint"),
-                              popup=f"Gauge {g.get('site_no','')}\n{g.get('station_nm','')}"
-                              ).add_to(m)
+                              popup=f"Gauge {g.get('site_no','')}\n{g.get('station_nm','')}",
+                              ).add_to(gauges_fg)
 
         # flood events
         if self.flood_events is not None:
@@ -589,8 +599,32 @@ class CulvertAnalysisSystem:
                                         radius=8,
                                         color="orange",
                                         fill=True,
-                                        popup=f"{ev.get('event_type','')}\n{ev.get('area_desc','')}"
-                                        ).add_to(m)
+                                        fill_opacity=0.7,
+                                        popup=f"{ev.get('event_type','')}\n{ev.get('area_desc','')}",
+                                        ).add_to(floods_fg)
+
+        # add feature groups to map
+        culverts_fg.add_to(m)
+        gauges_fg.add_to(m)
+        floods_fg.add_to(m)
+
+        # Add layer control so users can toggle layers including turning gauges off
+        folium.LayerControl(collapsed=False).add_to(m)
+
+        # Add a simple legend (fixed-position HTML)
+        legend_html = '''
+        <div style="position: fixed; 
+                    bottom: 50px; left: 50px; width: 160px; height: 140px; 
+                    background-color: white; z-index:9999; padding: 10px; border:2px solid grey;">
+        <b>Map legend</b><br>
+        &nbsp;<i class="fa fa-circle" style="color:red"></i>&nbsp;High Risk Culvert<br>
+        &nbsp;<i class="fa fa-circle" style="color:green"></i>&nbsp;Low/Medium Risk Culvert<br>
+        &nbsp;<i class="fa fa-circle" style="color:blue"></i>&nbsp;Stream Gauge<br>
+        &nbsp;<i class="fa fa-circle" style="color:orange"></i>&nbsp;Flood Event
+        </div>
+        '''
+        from folium import IFrame
+        m.get_root().html.add_child(folium.Element(legend_html))
 
         print("Interactive map created")
         return m
@@ -638,7 +672,7 @@ class CulvertAnalysisSystem:
 if __name__ == "__main__":
     cas = CulvertAnalysisSystem()
     # Example: change county/state as needed
-    cas.set_location_by_county_state("Harris", "Texas")
+    cas.set_location_by_county_state("Baltimore", "Maryland")
     cas.collect_culvert_data()
     cas.collect_stream_gauge_data()
     cas.collect_flood_event_data()
