@@ -1,0 +1,50 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    environment:
+      - API_KEY=change-me-strong
+      - ALLOWED_ORIGINS=*
+      - REDIS_URL=redis://redis:6379/0
+      - RQ_REDIS_URL=redis://redis:6379/0
+      - ENABLE_REDIS=true
+      - ENABLE_RQ=true
+      - ENABLE_DB=false
+      - LOG_LEVEL=INFO
+      - CACHE_TTL_SEC=3600
+      - RATE_LIMIT_REQUESTS=60
+      - RATE_LIMIT_WINDOW_SEC=60
+    depends_on:
+      - redis
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: .
+    command: bash -lc "python worker.py"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - RQ_REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+    depends_on:
+      - redis
+
+  # Optional Postgres
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=culverts
+      - POSTGRES_USER=culv
+      - POSTGRES_PASSWORD=culvpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
